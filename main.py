@@ -4,49 +4,59 @@ import string
 from flask import Flask
 import threading
 import os
+from instagrapi import Client
 
-# 1. Aapka Telegram Bot Token
+# 1. Bot Setup
 API_TOKEN = '8533275704:AAHMcQjRpo_ROgiUvJIE6SwrEcyTAGOCDyE'
 bot = telebot.TeleBot(API_TOKEN)
-
-# 2. Flask Setup (Render ko zinda rakhne ke liye)
 app = Flask(__name__)
+cl = Client()
 
 @app.route('/')
 def home():
     return "Bot is Alive!"
 
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
-# 3. Random Username aur Password Banane Wala Function
+# 2. Random Details Generator
 def generate_details():
     user = 'user_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     pw = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
     return user, pw
 
-# 4. Bot Commands
-@bot.message_handler(commands=['start', 'help'])
+# 3. Bot Logic
+@bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Instagram Auto-Bot taiyar hai! 🤖\nAccount banane ke liye /create likhein.")
+    bot.reply_to(message, "Instagram Auto-Bot Ready! 🤖\nAccount ke liye /create likhein.")
 
 @bot.message_handler(commands=['create'])
-def start_creation(message):
-    msg = bot.reply_to(message, "Sirf apni **Email ID** bhejiye. Username aur Password bot khud bana lega!")
-    bot.register_next_step_handler(msg, process_email)
+def ask_email(message):
+    msg = bot.reply_to(message, "Apni **Fresh Email ID** bhejiye:")
+    bot.register_next_step_handler(msg, send_insta_otp)
 
-def process_email(message):
+def send_insta_otp(message):
     email = message.text
     user, pw = generate_details()
     
-    # Bot details generate karke dikhayega
-    bot.send_message(message.chat.id, f"✅ Details Generated:\n👤 Username: {user}\n🔑 Password: {pw}\n📧 Email: {email}")
+    bot.send_message(message.chat.id, f"⏳ Instagram ko OTP request bhej raha hoon...\n👤 User: {user}\n🔑 Pass: {pw}")
     
-    # Yahan Instagram OTP ka process shuru hoga (Instagrapi ke saath)
-    bot.send_message(message.chat.id, "Wait... Instagram ko OTP bhej diya gaya hai. OTP milte hi yahan enter karein!")
+    try:
+        # Yeh line Instagram ko real OTP bhejne par majboor karegi
+        cl.account_register_email_send_code(email)
+        msg = bot.send_message(message.chat.id, "✅ OTP bhej diya gaya hai! Inbox check karke 6-digit code yahan likhein:")
+        bot.register_next_step_handler(msg, lambda m: finalize_account(m, email, user, pw))
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Error: {str(e)}\nTip: New email use karein ya 5 min baad try karein.")
 
-# 5. Bot Start Karna
+def finalize_account(message, email, user, pw):
+    otp = message.text
+    try:
+        # Account create karna aur cookies nikalna
+        result = cl.account_register_email_verify_code(email, otp, user, pw)
+        cookies = cl.get_cookies()
+        bot.send_message(message.chat.id, f"🎉 Account Ban Gaya!\n\n🍪 **Cookies:**\n`{cookies}`")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ OTP Verification Failed: {str(e)}")
+
+# 4. Start
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-    print("Bot is starting...")
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))).start()
     bot.infinity_polling()

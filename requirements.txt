@@ -1,5 +1,4 @@
 pyTelegramBotAPI
 instagrapi
 flask
-gunicorn
 

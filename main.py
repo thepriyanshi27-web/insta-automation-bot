@@ -1,7 +1,6 @@
 import telebot
 import random
 import string
-import time
 import os
 from flask import Flask
 import threading
@@ -12,22 +11,13 @@ API_TOKEN = '8533275704:AAHMcQjRpo_ROgiUvJIE6SwrEcyTAGOCDyE'
 bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
-# 2. Gmail Trick Logic (Ek email, hazar account)
+# 2. Gmail Multi-Account Trick
 def get_smart_email(base_email):
     name, domain = base_email.split('@')
     if 'gmail' in domain:
-        # Instagram trick: shivigupta537+anynumber@gmail.com
-        return f"{name}+{random.randint(11, 999)}@{domain}"
+        # Trick: shivigupta537+123@gmail.com (OTP main email pe hi aayega)
+        return f"{name}+{random.randint(10, 999)}@{domain}"
     return base_email
-
-# 3. Human Details (Taaki account real lage)
-def get_random_human():
-    first_names = ["Rahul", "Sonia", "Amit", "Priya", "Vikram", "Sneha"]
-    last_names = ["Gupta", "Sharma", "Verma", "Singh", "Khan"]
-    bios = ["Explorer 🌍 | Techie 💻", "Living life one day at a time ✨", "Coffee Lover ☕", "Dream Big 🌙"]
-    name = f"{random.choice(first_names)} {random.choice(last_names)}"
-    user = f"{name.lower().replace(' ', '_')}_{random.randint(100, 999)}"
-    return name, user, random.choice(bios)
 
 @bot.message_handler(commands=['create'])
 def ask_email(message):
@@ -37,16 +27,19 @@ def ask_email(message):
 def start_process(message):
     base_email = message.text
     smart_email = get_smart_email(base_email)
-    full_name, user, bio = get_random_human()
+    
+    # Human-like details
+    full_name = random.choice(["Aryan Malhotra", "Sana Khan", "Riya Sharma", "Vikram Singh"])
+    user = f"{full_name.lower().replace(' ', '_')}_{random.randint(100, 999)}"
     pw = "Pass_" + "".join(random.choices(string.digits, k=6))
     
     cl = Client()
-    bot.send_message(message.chat.id, f"🤖 **Creating Human-like Account:**\n📧 Trick Email: `{smart_email}`\n👤 Username: `{user}`\n🔑 Password: `{pw}`")
+    bot.send_message(message.chat.id, f"🤖 **Creating Account...**\n📧 Email: `{smart_email}`\n👤 User: `{user}`\n🔑 Pass: `{pw}`")
 
     try:
-        # Corrected Instagrapi Function
-        cl.send_verification_code(smart_email)
-        msg = bot.send_message(message.chat.id, "📩 Instagram ne usi Gmail par OTP bheja hai. Enter karein:")
+        # Instagram ko OTP bhejne ka naya sahi tarika
+        cl.account_register_email_send_code(smart_email)
+        msg = bot.send_message(message.chat.id, "📩 OTP usi Gmail par gaya hai. Code yahan likhein:")
         bot.register_next_step_handler(msg, lambda m: finalize(m, cl, smart_email, user, pw, full_name))
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Error: {str(e)}")
@@ -54,12 +47,12 @@ def start_process(message):
 def finalize(message, cl, email, user, pw, name):
     otp = message.text
     try:
-        # Account register karna
-        cl.account_register_verify_code(email, otp, user, pw, name)
+        # Account finalize aur Cookies nikalna
+        cl.account_register_email_verify_code(email, otp, user, pw, name)
         cookies = cl.get_cookies()
-        bot.send_message(message.chat.id, f"✅ Done! Ek hi email se naya account ban gaya.\n\n🍪 **Cookies:**\n`{cookies}`")
+        bot.send_message(message.chat.id, f"✅ Done! Cookies:\n`{cookies}`")
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Failed: {str(e)}")
+        bot.send_message(message.chat.id, f"❌ OTP Failed: {str(e)}")
 
 @app.route('/')
 def home(): return "Bot is Alive!"
